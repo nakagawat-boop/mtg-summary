@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 import { getSupabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
-
 export async function GET(req: NextRequest) {
   const week = req.nextUrl.searchParams.get("week");
   if (!week) return NextResponse.json({ error: "week required" }, { status: 400 });
@@ -9,7 +8,6 @@ export async function GET(req: NextRequest) {
     .from("mtg_summary_meta").select("*").eq("week_key", week).single();
   return NextResponse.json({ meta: data ?? null });
 }
-
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { error } = await getSupabase()
