@@ -1,8 +1,16 @@
-export const dynamic = "force-dynamic";
-import { getSupabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-function normCsCa(caArr: any[]) {
-  return (caArr || []).map(r => ({
+export const dynamic = "force-dynamic";
+
+function sb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+}
+
+function norm(caArr: any[]) {
+  return (caArr || []).map((r:any) => ({
     sales:    Number(r?.sales)    || 0,
     decided:  Number(r?.decided)  || 0,
     meetings: Number(r?.meetings) || 0,
@@ -12,14 +20,14 @@ function normCsCa(caArr: any[]) {
   }));
 }
 export async function GET() {
-  const { data } = await getSupabase()
+  const { data } = await sb()
     .from("weekly_data")
     .select("week_key, data")
     .order("week_key", { ascending: true })
     .limit(6);
-  const rows = (data || []).map(r => ({
+  const rows = (data || []).map((r:any) => ({
     week_key: r.week_key,
-    ca: normCsCa(r.data?.cs?.ca),
+    ca: norm(r.data?.cs?.ca),
   }));
   return NextResponse.json({ rows });
 }
