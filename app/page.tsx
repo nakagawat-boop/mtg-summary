@@ -8,7 +8,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 // ── 型定義
 interface CaRow { sales:number; decided:number; meetings:number; active:number; zuba?:number; cl?:number; focusCount?:number; interviewSet?:number }
 interface WeekData { overall:{ca:CaRow[]}; cs:{ca:CaRow[]}; csl:{ca:CaRow[]}; focusData:any[]; pjData:any[] }
-interface HistoryRow { week_key:string; payload:WeekData }
+interface HistoryRow { week_key:string; payload?:WeekData; ca?:CaRow[] }
 interface Topic { id:number; title:string; body:string; color:string; tags:string[] }
 
 const SC_CA = ["清野","茨木","菊地","福田","大西","南原"]
@@ -277,8 +277,8 @@ export default function Dashboard() {
   useEffect(()=>{ loadAll() },[loadAll])
 
   // ── KPI集計
-  const scRows = scData?.overall?.ca || []
-  const csRows = csData?.cs?.ca || []
+  const scRows = scHistory.length > 0 ? scHistory[scHistory.length - 1].ca || [] : []
+  const csRows = csHistory.length > 0 ? csHistory[csHistory.length - 1].ca || [] : []
   const scKpi = calcKpi(scRows)
   const csKpi = calcKpi(csRows)
   const totalDecided = scKpi.decided + csKpi.decided
