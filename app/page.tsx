@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
 
@@ -293,6 +293,26 @@ export default function Dashboard() {
 
   useEffect(()=>{ loadAll() },[loadAll])
 
+  // ── 自動保存 (debounce 800ms)
+  const saveTimer = useRef<NodeJS.Timeout|null>(null)
+  const autoSave = useCallback((data: {
+    pj_cards?: PjCard[]; topics_data?: Topic[];
+    ad_cost_sc?: string; ad_cost_cs?: string;
+    unit_sc?: string; unit_cs?: string;
+  }) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await fetch('/api/summary-meta', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ week: labelToKey(week), meta: data })
+        })
+      } catch(e) { console.error('保存失敗', e) }
+    }, 800)
+  }, [week])
+
+
   // ── KPI集計
   const scRows = scHistory.length > 0 ? scHistory[scHistory.length - 1].ca || [] : []
   const csRows = csHistory.length > 0 ? csHistory[csHistory.length - 1].ca || [] : []
@@ -440,13 +460,13 @@ export default function Dashboard() {
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
                     {[['SC 広告費（万）',adCostSC,setAdCostSC],['CS 広告費（万）',adCostCS,setAdCostCS]].map(([l,v,s]:any)=>(
                       <div key={l}><label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',letterSpacing:'.04em',display:'block',marginBottom:4}}>{l}</label>
-                      <input type="number" value={v} onChange={e=>s(e.target.value)} style={{width:'100%',fontSize:13,fontWeight:600,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fafaf9',color:'#1d1d1f',outline:'none',fontFamily:'DM Mono,monospace'}} /></div>
+                      <input type="number" value={v} onChange={e=>{ s(e.target.value); if(l==='SC 広告費（万）') autoSave({ad_cost_sc:e.target.value}); else if(l==='CS 広告費（万）') autoSave({ad_cost_cs:e.target.value}); else if(l==='SC 面談単価（万）') autoSave({unit_sc:e.target.value}); else if(l==='CS 面談単価（万）') autoSave({unit_cs:e.target.value}); }} style={{width:'100%',fontSize:13,fontWeight:600,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fafaf9',color:'#1d1d1f',outline:'none',fontFamily:'DM Mono,monospace'}} /></div>
                     ))}
                   </div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
                     {[['SC 面談単価（万）',unitSC,setUnitSC],['CS 面談単価（万）',unitCS,setUnitCS]].map(([l,v,s]:any)=>(
                       <div key={l}><label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',letterSpacing:'.04em',display:'block',marginBottom:4}}>{l}</label>
-                      <input type="number" value={v} onChange={e=>s(e.target.value)} style={{width:'100%',fontSize:13,fontWeight:600,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fafaf9',color:'#1d1d1f',outline:'none',fontFamily:'DM Mono,monospace'}} /></div>
+                      <input type="number" value={v} onChange={e=>{ s(e.target.value); if(l==='SC 広告費（万）') autoSave({ad_cost_sc:e.target.value}); else if(l==='CS 広告費（万）') autoSave({ad_cost_cs:e.target.value}); else if(l==='SC 面談単価（万）') autoSave({unit_sc:e.target.value}); else if(l==='CS 面談単価（万）') autoSave({unit_cs:e.target.value}); }} style={{width:'100%',fontSize:13,fontWeight:600,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fafaf9',color:'#1d1d1f',outline:'none',fontFamily:'DM Mono,monospace'}} /></div>
                     ))}
                   </div>
                   <div style={{height:80}}>
@@ -620,7 +640,8 @@ export default function Dashboard() {
                 <button onClick={()=>setShowPjForm(false)} style={{fontSize:12,fontWeight:600,padding:'7px 16px',borderRadius:7,border:'1px solid #e5e5e5',background:'#fff',color:'#706e6b',cursor:'pointer'}}>キャンセル</button>
                 <button onClick={()=>{
                   const newId = pjCards.length > 0 ? Math.max(...pjCards.map(p=>p.id))+1 : 1;
-                  setPjCards(p=>[...p,{...pjForm as PjCard, id:newId}]);
+                  const newCards = [...pjCards,{...pjForm as PjCard, id:newId}];
+                  setPjCards(newCards); autoSave({pj_cards:newCards});
                   setShowPjForm(false);
                 }} style={{fontSize:12,fontWeight:700,padding:'7px 18px',borderRadius:7,border:'none',background:'#0176d3',color:'#fff',cursor:'pointer'}}>追加する</button>
               </div>
@@ -667,7 +688,7 @@ export default function Dashboard() {
                     style={{fontSize:11,fontWeight:600,padding:'5px 12px',borderRadius:7,border:'1px solid #e5e5e5',background:pjEditId===pj.id?'#0176d3':'#fafaf9',color:pjEditId===pj.id?'#fff':'#706e6b',cursor:'pointer'}}>
                     {pjEditId===pj.id?'保存':'編集'}
                   </button>
-                  <button onClick={()=>{ if(pjEditId===pj.id){ setPjCards(p=>p.map(x=>x.id===pj.id?{...pjForm as PjCard,id:pj.id}:x)); setPjEditId(null); } else { setPjCards(p=>p.filter(x=>x.id!==pj.id)); }}}
+                  <button onClick={()=>{ if(pjEditId===pj.id){ const updated=pjCards.map((x:PjCard)=>x.id===pj.id?{...pjForm as PjCard,id:pj.id}:x); setPjCards(updated); autoSave({pj_cards:updated}); setPjEditId(null); } else { const filtered=pjCards.filter((x:PjCard)=>x.id!==pj.id); setPjCards(filtered); autoSave({pj_cards:filtered}); }}}
                     style={{fontSize:11,padding:'5px 10px',borderRadius:7,border:'1px solid #fce9e9',background:'#fce9e9',color:'#ba0517',cursor:'pointer'}}>
                     {pjEditId===pj.id?'確定':'削除'}
                   </button>
@@ -750,7 +771,7 @@ export default function Dashboard() {
           <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16}}>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {topics.map(t=>(
-                <TopicCard key={t.id} topic={t} onDelete={()=>setTopics(topics.filter(x=>x.id!==t.id))} />
+                <TopicCard key={t.id} topic={t} onDelete={()=>{ const ft=topics.filter((x:Topic)=>x.id!==t.id); setTopics(ft); autoSave({topics_data:ft}); }} />
               ))}
               {showForm && (
                 <TopicForm
