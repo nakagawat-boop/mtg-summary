@@ -1,8 +1,23 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-export async function GET(_req: NextRequest) {
-  return NextResponse.json({ meta: null });
+
+export async function GET(req: NextRequest) {
+  const week = req.nextUrl.searchParams.get("week");
+  if (!week) return NextResponse.json({ error: "week required" }, { status: 400 });
+  const { createClient } = await import("@supabase/supabase-js");
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { data } = await sb.from("mtg_summary_meta").select("*").eq("week_key", week).single();
+  return NextResponse.json({ meta: data ?? null });
 }
-export async function POST(_req: NextRequest) {
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const { createClient } = await import("@supabase/supabase-js");
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const { error } = await sb.from("mtg_summary_meta").upsert(
+    { week_key: body.week, ...body.meta, updated_at: new Date().toISOString() },
+    { onConflict: "week_key" }
+  );
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
