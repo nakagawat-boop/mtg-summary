@@ -1,23 +1,40 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 
+const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const headers = () => ({
+  "apikey": SB_KEY,
+  "Authorization": `Bearer ${SB_KEY}`,
+  "Content-Type": "application/json",
+  "Prefer": "return=minimal"
+});
+
 export async function GET(req: NextRequest) {
   const week = req.nextUrl.searchParams.get("week");
   if (!week) return NextResponse.json({ error: "week required" }, { status: 400 });
-  const { createClient } = await import("@supabase/supabase-js");
-  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  const { data } = await sb.from("mtg_summary_meta").select("*").eq("week_key", week).single();
-  return NextResponse.json({ meta: data ?? null });
+  const res = await fetch(
+    `${SB_URL}/rest/v1/mtg_summary_meta?week_key=eq.${encodeURIComponent(week)}&select=*`,
+    { headers: headers(), cache: "no-store" }
+  );
+  const rows = await res.json();
+  return NextResponse.json({ meta: rows?.[0] ?? null });
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { createClient } = await import("@supabase/supabase-js");
-  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  const { error } = await sb.from("mtg_summary_meta").upsert(
-    { week_key: body.week, ...body.meta, updated_at: new Date().toISOString() },
-    { onConflict: "week_key" }
+  const res = await fetch(
+    `${SB_URL}/rest/v1/mtg_summary_meta`,
+    {
+      method: "POST",
+      headers: { ...headers(), "Prefer": "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ week_key: body.week, ...body.meta, updated_at: new Date().toISOString() }),
+      cache: "no-store"
+    }
   );
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!res.ok) {
+    const err = await res.text();
+    return NextResponse.json({ error: err }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
