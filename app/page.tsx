@@ -263,6 +263,14 @@ export default function Dashboard() {
     {id:4,title:'AI 面接フィードバックツールの試験運用開始',body:'ai-interview ツールを SC 清野・茨木で試験利用開始。精度と利用継続率を来週レビュー。',color:'orange',tags:['action']},
   ])
   const [showForm, setShowForm] = useState(false)
+  const [pjCards, setPjCards] = useState<PjCard[]>([
+    {id:1,name:'株式会社〇〇 — エンジニア 3名採用 PJ',owner:'清野（SC）',started:'2025/02/03',total:3,decided:2,sales:840,meetings:8,progress:67,status:'on',done:'2名目の内定承諾獲得。',issue:'希望年収のギャップが発生。',next:'来週月曜に企業担当者と面談。'},
+    {id:2,name:'△△ホールディングス — マーケティング責任者採用 PJ',owner:'茨木（SC）',started:'2025/01/20',total:1,decided:0,sales:0,meetings:5,progress:30,status:'at',done:'最終面接まで進んだ候補者が辞退。',issue:'候補者層が薄い。',next:'DBを横断して候補者10名追加。'},
+    {id:3,name:'□□ケア — 介護施設長採用 PJ',owner:'中村（CS）',started:'2025/02/10',total:2,decided:1,sales:350,meetings:6,progress:50,status:'on',done:'1名目が内定・入社承諾完了。',issue:'入社時期の調整継続中。',next:'企業側の柔軟性を確認。'},
+  ])
+  const [pjEditId, setPjEditId] = useState<number|null>(null)
+  const [showPjForm, setShowPjForm] = useState(false)
+  const [pjForm, setPjForm] = useState<Partial<PjCard>>({})
   const [loading, setLoading] = useState(true)
 
   const loadAll = useCallback(async() => {
@@ -362,7 +370,7 @@ export default function Dashboard() {
       </div>
 
       {/* TABS */}
-      <div style={{background:'#fff',borderBottom:'1px solid #e5e5e5',display:'flex',padding:'0 28px',gap:0,overflowX:'auto'}}>
+      <div style={{background:'#fff',borderBottom:'1px solid #e5e5e5',display:'flex',padding:'0 28px',gap:0,overflowX:'auto',position:'relative',zIndex:99}}>
         {TAB_LABELS.map((label,i)=>(
           <button key={i} onClick={()=>setTab(i)}
             style={{padding:'14px 20px',fontSize:13,fontWeight:tab===i?600:500,color:tab===i?TAB_COLORS[i]:'#706e6b',border:'none',background:'none',cursor:'pointer',borderBottom:`2px solid ${tab===i?TAB_COLORS[i]:'transparent'}`,display:'flex',alignItems:'center',gap:6,whiteSpace:'nowrap',fontFamily:'DM Sans,sans-serif',transition:'all .15s'}}>
@@ -562,7 +570,7 @@ export default function Dashboard() {
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
             <div>
               <div style={{fontSize:20,fontWeight:800,letterSpacing:'-.5px'}}>PJ 振り返り</div>
-              <div style={{fontSize:12,color:'#706e6b',marginTop:3}}>{latestScWeek} ― 全プロジェクト</div>
+              <div style={{fontSize:12,color:'#706e6b',marginTop:3}}>{week} ― 全プロジェクト</div>
             </div>
             <button onClick={()=>{ setPjForm({name:'',owner:'',started:'',total:1,decided:0,sales:0,meetings:0,progress:0,status:'on',done:'',issue:'',next:''}); setShowPjForm(true); }}
               style={{fontSize:12,fontWeight:700,padding:'8px 18px',borderRadius:8,border:'none',background:'#0176d3',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
