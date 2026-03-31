@@ -9,6 +9,15 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 interface CaRow { sales:number; decided:number; meetings:number; active:number; zuba?:number; cl?:number; focusCount?:number; interviewSet?:number }
 interface WeekData { overall:{ca:CaRow[]}; cs:{ca:CaRow[]}; csl:{ca:CaRow[]}; focusData:any[]; pjData:any[] }
 interface HistoryRow { week_key:string; payload?:WeekData; ca?:CaRow[] }
+
+interface PjCard {
+  id: number;
+  name: string; owner: string; started: string; total: number;
+  decided: number; sales: number; meetings: number; progress: number;
+  status: 'on'|'at'|'off';
+  done: string; issue: string; next: string;
+}
+
 interface Topic { id:number; title:string; body:string; color:string; tags:string[] }
 
 const SC_CA = ["清野","茨木","菊地","福田","大西","南原"]
@@ -552,52 +561,172 @@ export default function Dashboard() {
         <div style={{padding:'24px 28px',maxWidth:1280,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
             <div>
-              <div style={{fontSize:20,fontWeight:800,color:'#1d1d1f',letterSpacing:'-.5px'}}>PJ 振り返り</div>
-              <div style={{fontSize:12,color:'#706e6b',marginTop:3}}>SC + CS 全プロジェクト　{week}</div>
+              <div style={{fontSize:20,fontWeight:800,letterSpacing:'-.5px'}}>PJ 振り返り</div>
+              <div style={{fontSize:12,color:'#706e6b',marginTop:3}}>{latestScWeek} ― 全プロジェクト</div>
             </div>
+            <button onClick={()=>{ setPjForm({name:'',owner:'',started:'',total:1,decided:0,sales:0,meetings:0,progress:0,status:'on',done:'',issue:'',next:''}); setShowPjForm(true); }}
+              style={{fontSize:12,fontWeight:700,padding:'8px 18px',borderRadius:8,border:'none',background:'#0176d3',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              ＋ PJを追加
+            </button>
           </div>
-          <div style={{background:'linear-gradient(135deg,#032d60,#0176d3 60%,#1b96ff)',borderRadius:14,padding:'24px 28px',marginBottom:20,display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:0}}>
-            {[['PJ 総数','4','SC 2 / CS 2'],['今週決定','3','SC 2 / CS 1'],['累計売上','2,400万','目標比 96%'],['残ズバ','520万','来週以降確定'],['平均完了率','74%','前週 68%']].map(([l,v,s],i)=>(
+
+          {/* 新規追加フォーム */}
+          {showPjForm && (
+            <div style={{background:'#fff',border:'2px solid #0176d3',borderRadius:10,padding:'20px',marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#0176d3',marginBottom:14}}>🆕 新規PJ追加</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+                {([['PJ名・企業名',pjForm.name||'','name'],['担当CA',pjForm.owner||'','owner'],['開始日',pjForm.started||'','started']] as [string,string,string][]).map(([l,v,k])=>(
+                  <div key={k} style={{gridColumn:k==='name'?'span 2':'auto'}}>
+                    <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>{l}</label>
+                    <input value={v} onChange={e=>setPjForm(p=>({...p,[k]:e.target.value}))}
+                      style={{width:'100%',fontSize:13,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,outline:'none',fontFamily:'sans-serif'}} />
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:10}}>
+                {([['目標人数',pjForm.total||1,'total','number'],['決定数',pjForm.decided||0,'decided','number'],['売上(万)',pjForm.sales||0,'sales','number'],['完了率%',pjForm.progress||0,'progress','number']] as [string,number,string,string][]).map(([l,v,k,t])=>(
+                  <div key={k}>
+                    <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>{l}</label>
+                    <input type={t} value={v} onChange={e=>setPjForm(p=>({...p,[k]:Number(e.target.value)}))}
+                      style={{width:'100%',fontSize:13,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,outline:'none'}} />
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>ステータス</label>
+                <select value={pjForm.status||'on'} onChange={e=>setPjForm(p=>({...p,status:e.target.value as 'on'|'at'|'off'}))}
+                  style={{fontSize:13,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,outline:'none',background:'#fff'}}>
+                  <option value="on">● 順調</option><option value="at">● 要注意</option><option value="off">● 遅延</option>
+                </select>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+                {([['📋 実施したこと',pjForm.done||'','done'],['⚠️ 課題',pjForm.issue||'','issue'],['💡 ネクストアクション',pjForm.next||'','next']] as [string,string,string][]).map(([l,v,k])=>(
+                  <div key={k}>
+                    <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>{l}</label>
+                    <textarea value={v} onChange={e=>setPjForm(p=>({...p,[k]:e.target.value}))} rows={3}
+                      style={{width:'100%',fontSize:12,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,resize:'none',outline:'none',fontFamily:'sans-serif',lineHeight:1.5}} />
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+                <button onClick={()=>setShowPjForm(false)} style={{fontSize:12,fontWeight:600,padding:'7px 16px',borderRadius:7,border:'1px solid #e5e5e5',background:'#fff',color:'#706e6b',cursor:'pointer'}}>キャンセル</button>
+                <button onClick={()=>{
+                  const newId = pjCards.length > 0 ? Math.max(...pjCards.map(p=>p.id))+1 : 1;
+                  setPjCards(p=>[...p,{...pjForm as PjCard, id:newId}]);
+                  setShowPjForm(false);
+                }} style={{fontSize:12,fontWeight:700,padding:'7px 18px',borderRadius:7,border:'none',background:'#0176d3',color:'#fff',cursor:'pointer'}}>追加する</button>
+              </div>
+            </div>
+          )}
+
+          {/* サマリーバー */}
+          <div style={{background:'linear-gradient(135deg,#032d60,#0176d3 60%,#1b96ff)',borderRadius:14,padding:'22px 28px',marginBottom:20,display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:0}}>
+            {[
+              ['PJ総数',`${pjCards.length}`,'SC/CS合計'],
+              ['今週決定',`${pjCards.reduce((s,p)=>s+p.decided,0)}`,`${pjCards.filter(p=>p.status==='on').length}件順調`],
+              ['累計売上',`${pjCards.reduce((s,p)=>s+p.sales,0)}万`,'全PJ合算'],
+              ['要注意',`${pjCards.filter(p=>p.status==='at').length}件`,'要フォロー'],
+              ['平均完了率',pjCards.length>0?`${Math.round(pjCards.reduce((s,p)=>s+p.progress,0)/pjCards.length)}%`:'—%','全PJ平均'],
+            ].map(([l,v,s],i)=>(
               <div key={l} style={{borderLeft:i>0?'1px solid rgba(255,255,255,.15)':'none',paddingLeft:i>0?24:0}}>
-                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'.07em',color:'rgba(255,255,255,.6)',marginBottom:6}}>{l}</div>
-                <div style={{fontSize:30,fontWeight:800,color:'#fff',letterSpacing:'-1.5px',lineHeight:1}}>{v}</div>
-                <div style={{fontSize:11,color:'rgba(255,255,255,.6)',marginTop:4}}>{s}</div>
+                <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'.07em',color:'rgba(255,255,255,.6)',marginBottom:5}}>{l}</div>
+                <div style={{fontSize:28,fontWeight:800,color:'#fff',letterSpacing:'-1px',lineHeight:1}}>{v}</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,.6)',marginTop:3}}>{s}</div>
               </div>
             ))}
           </div>
-          {[
-            {name:'株式会社〇〇 — エンジニア 3名採用 PJ',owner:'清野（SC）',started:'2025/02/03',decided:2,total:3,sales:840,meetings:8,progress:67,status:'on',done:'2名目の内定承諾獲得。残り1名は最終面接通過者2名に対し比較フェーズ中。',issue:'希望年収のギャップが残り1名で発生。条件交渉が来週の山場。',next:'来週月曜に企業担当者と面談。条件面の着地点を確認する。'},
-            {name:'△△ホールディングス — マーケティング責任者採用 PJ',owner:'茨木（SC）',started:'2025/01/20',decided:0,total:1,sales:0,meetings:5,progress:30,status:'at',done:'最終面接まで進んだ候補者が辞退。原因は競合他社からのオファー。再サーチ開始。',issue:'候補者層が薄い。ハイクラスのマーケ経験者へのアプローチ数が不足。',next:'DBを横断して候補者10名追加。中川同席で面談設定を来週中に実施。'},
-            {name:'□□ケア — 介護施設長採用 PJ',owner:'中村（CS）',started:'2025/02/10',decided:1,total:2,sales:350,meetings:6,progress:50,status:'on',done:'1名目が内定・入社承諾完了。2名目は二次面接通過者2名に絞り込み中。',issue:'2名目候補者の入社時期が企業希望より1ヶ月後ろ倒し。調整継続中。',next:'企業側の柔軟性を確認。入社日調整ができれば最終合意に進める。'},
-          ].map((pj,i)=>(
-            <div key={i} style={{background:'#fff',border:'1px solid #e5e5e5',borderRadius:10,overflow:'hidden',marginBottom:14}}>
+
+          {/* PJカード一覧 */}
+          {pjCards.length === 0 && !showPjForm && (
+            <div style={{textAlign:'center',padding:60,color:'#706e6b',background:'#fff',borderRadius:10,border:'1px solid #e5e5e5'}}>
+              <div style={{fontSize:32,marginBottom:12}}>📋</div>
+              <div style={{fontWeight:600,marginBottom:6}}>PJがまだありません</div>
+              <div style={{fontSize:12}}>「＋ PJを追加」ボタンから追加できます</div>
+            </div>
+          )}
+          {pjCards.map((pj)=>(
+            <div key={pj.id} style={{background:'#fff',border:'1px solid #e5e5e5',borderRadius:10,overflow:'hidden',marginBottom:14}}>
               <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e5e5',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div>
                   <div style={{fontSize:14,fontWeight:700,color:'#1d1d1f'}}>{pj.name}</div>
                   <div style={{fontSize:11,color:'#706e6b',marginTop:3}}>担当: {pj.owner}　開始: {pj.started}　目標: {pj.total}名採用</div>
                 </div>
-                <span style={{fontSize:10,fontWeight:700,padding:'3px 10px',borderRadius:999,textTransform:'uppercase',background:pj.status==='on'?'#eaf5ea':pj.status==='at'?'#fef0e1':'#fce9e9',color:pj.status==='on'?'#2e844a':pj.status==='at'?'#ea780e':'#ba0517'}}>
-                  {pj.status==='on'?'● 順調':pj.status==='at'?'● 要注意':'● 遅延'}
-                </span>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:10,fontWeight:700,padding:'3px 10px',borderRadius:999,textTransform:'uppercase',background:pj.status==='on'?'#eaf5ea':pj.status==='at'?'#fef0e1':'#fce9e9',color:pj.status==='on'?'#2e844a':pj.status==='at'?'#ea780e':'#ba0517'}}>
+                    {pj.status==='on'?'● 順調':pj.status==='at'?'● 要注意':'● 遅延'}
+                  </span>
+                  <button onClick={()=>{ setPjEditId(pjEditId===pj.id?null:pj.id); setPjForm({...pj}); }}
+                    style={{fontSize:11,fontWeight:600,padding:'5px 12px',borderRadius:7,border:'1px solid #e5e5e5',background:pjEditId===pj.id?'#0176d3':'#fafaf9',color:pjEditId===pj.id?'#fff':'#706e6b',cursor:'pointer'}}>
+                    {pjEditId===pj.id?'保存':'編集'}
+                  </button>
+                  <button onClick={()=>{ if(pjEditId===pj.id){ setPjCards(p=>p.map(x=>x.id===pj.id?{...pjForm as PjCard,id:pj.id}:x)); setPjEditId(null); } else { setPjCards(p=>p.filter(x=>x.id!==pj.id)); }}}
+                    style={{fontSize:11,padding:'5px 10px',borderRadius:7,border:'1px solid #fce9e9',background:'#fce9e9',color:'#ba0517',cursor:'pointer'}}>
+                    {pjEditId===pj.id?'確定':'削除'}
+                  </button>
+                </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',borderBottom:'1px solid #e5e5e5'}}>
-                {[['決定数',`${pj.decided}/${pj.total}名`,pj.status==='on'?'#0176d3':'#ea780e'],['累計売上',`${pj.sales}万`,'#2e844a'],['面談数(今週)',`${pj.meetings}件`,'#1d1d1f'],['完了率',`${pj.progress}%`,pj.status==='on'?'#0176d3':'#ea780e']].map(([l,v,c],j)=>(
-                  <div key={l} style={{padding:'14px 16px',borderRight:j<3?'1px solid #e5e5e5':'none'}}>
-                    <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',marginBottom:4}}>{l}</div>
-                    <div style={{fontSize:20,fontWeight:800,letterSpacing:'-.5px',color:c as string}}>{v}</div>
+              {pjEditId===pj.id ? (
+                <div style={{padding:'16px 20px',borderBottom:'1px solid #e5e5e5'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+                    {([['PJ名',pjForm.name||'','name'],['担当CA',pjForm.owner||'','owner'],['開始日',pjForm.started||'','started']] as [string,string,string][]).map(([l,v,k])=>(
+                      <div key={k} style={{gridColumn:k==='name'?'span 2':'auto'}}>
+                        <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>{l}</label>
+                        <input value={v} onChange={e=>setPjForm(p=>({...p,[k]:e.target.value}))}
+                          style={{width:'100%',fontSize:13,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,outline:'none'}} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
-                {[['📋 実施したこと',pj.done],['⚠️ 課題',pj.issue],['💡 ネクストアクション',pj.next]].map(([l,v])=>(
-                  <div key={l}><label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',display:'block',marginBottom:5}}>{l}</label>
-                  <p style={{fontSize:12,color:'#1d1d1f',lineHeight:1.5}}>{v}</p></div>
-                ))}
-              </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:10}}>
+                    {([['目標',pjForm.total||1,'total'],['決定',pjForm.decided||0,'decided'],['売上(万)',pjForm.sales||0,'sales'],['完了%',pjForm.progress||0,'progress']] as [string,number,string][]).map(([l,v,k])=>(
+                      <div key={k}>
+                        <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>{l}</label>
+                        <input type="number" value={v} onChange={e=>setPjForm(p=>({...p,[k]:Number(e.target.value)}))}
+                          style={{width:'100%',fontSize:13,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,outline:'none'}} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>ステータス</label>
+                    <select value={pjForm.status||'on'} onChange={e=>setPjForm(p=>({...p,status:e.target.value as 'on'|'at'|'off'}))}
+                      style={{fontSize:13,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,outline:'none',background:'#fff'}}>
+                      <option value="on">● 順調</option><option value="at">● 要注意</option><option value="off">● 遅延</option>
+                    </select>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+                    {([['📋 実施したこと',pjForm.done||'','done'],['⚠️ 課題',pjForm.issue||'','issue'],['💡 ネクストアクション',pjForm.next||'','next']] as [string,string,string][]).map(([l,v,k])=>(
+                      <div key={k}>
+                        <label style={{fontSize:10,fontWeight:600,color:'#706e6b',textTransform:'uppercase',display:'block',marginBottom:3}}>{l}</label>
+                        <textarea value={v} onChange={e=>setPjForm(p=>({...p,[k]:e.target.value}))} rows={3}
+                          style={{width:'100%',fontSize:12,padding:'7px 10px',border:'1px solid #e5e5e5',borderRadius:7,resize:'none',outline:'none',fontFamily:'sans-serif',lineHeight:1.5}} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',borderBottom:'1px solid #e5e5e5'}}>
+                  {[['決定数',`${pj.decided}/${pj.total}名`,pj.status==='on'?'#0176d3':'#ea780e'],['累計売上',`${pj.sales}万`,'#2e844a'],['面談数(今週)',`${pj.meetings}件`,'#1d1d1f'],['完了率',`${pj.progress}%`,pj.status==='on'?'#0176d3':'#ea780e']].map(([l,v,c],j)=>(
+                    <div key={String(l)} style={{padding:'14px 16px',borderRight:j<3?'1px solid #e5e5e5':'none'}}>
+                      <div style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',marginBottom:4}}>{l}</div>
+                      <div style={{fontSize:20,fontWeight:800,letterSpacing:'-.5px',color:c as string}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {pjEditId!==pj.id && (
+                <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16}}>
+                  {([['📋 実施したこと',pj.done],['⚠️ 課題',pj.issue],['💡 ネクストアクション',pj.next]] as [string,string][]).map(([l,v])=>(
+                    <div key={l}>
+                      <label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',display:'block',marginBottom:5}}>{l}</label>
+                      <p style={{fontSize:12,color:'#1d1d1f',lineHeight:1.5}}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
+
 
       {/* ═══ TAB 4: その他トピックス ═══ */}
       {!loading && tab===4 && (
