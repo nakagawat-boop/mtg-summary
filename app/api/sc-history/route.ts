@@ -5,9 +5,8 @@ const SC_KEYS = ["kiyono","ibaraki","kikuchi","fukuda","onishi","minami"];
 
 function getRecentMondays(): string[] {
   const weeks: string[] = [];
-  // JST = UTC+9
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const day = now.getUTCDay(); // 0=日, 1=月
+  const day = now.getUTCDay();
   const diffToMonday = day === 0 ? 6 : day - 1;
   now.setUTCDate(now.getUTCDate() - diffToMonday);
   for (let i = 0; i < 8; i++) {
@@ -30,17 +29,22 @@ export async function GET() {
         if (!r.ok) return null;
         const d = await r.json();
         if (!d.payload?.caData) return null;
-        const hasData = SC_KEYS.some(k => (Number(d.payload.caData[k]?.meetings)||0) > 0 || (Number(d.payload.caData[k]?.decided)||0) > 0);
+        // newMeetings or active or decided のどれかがあればデータあり
+        const hasData = SC_KEYS.some(k =>
+          (Number(d.payload.caData[k]?.newMeetings)||0) > 0 ||
+          (Number(d.payload.caData[k]?.active)||0) > 0 ||
+          (Number(d.payload.caData[k]?.decided)||0) > 0
+        );
         if (!hasData) return null;
         return {
           week_key: week,
           ca: SC_KEYS.map(k => ({
-            sales:    Number(d.payload.caData[k]?.sales)    || 0,
-            decided:  Number(d.payload.caData[k]?.decided)  || 0,
-            meetings: Number(d.payload.caData[k]?.meetings) || 0,
-            active:   Number(d.payload.caData[k]?.active)   || 0,
-            zuha:     Number(d.payload.caData[k]?.zuha)     || 0,
-            cl:       Number(d.payload.caData[k]?.cl)       || 0,
+            sales:    Number(d.payload.caData[k]?.sales)       || 0,
+            decided:  Number(d.payload.caData[k]?.decided)     || 0,
+            meetings: Number(d.payload.caData[k]?.newMeetings) || 0,  // 面談数はnewMeetings
+            active:   Number(d.payload.caData[k]?.active)      || 0,
+            zuha:     Number(d.payload.caData[k]?.zuha)        || 0,
+            cl:       Number(d.payload.caData[k]?.cl)          || 0,
           }))
         };
       } catch { return null; }
