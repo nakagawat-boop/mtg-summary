@@ -37,7 +37,7 @@ export async function GET() {
             decided:  Number(c.decided)  || 0,
             meetings: Number(c.meetings) || 0,
             active:   Number(c.active)   || 0,
-            zuha:     Number(c.zuha)     || 0,
+            zuba: Number(c?.zuha) || 0,
             cl:       Number(c.cl)       || 0,
           }))
         };

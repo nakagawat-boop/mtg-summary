@@ -43,7 +43,7 @@ export async function GET() {
             decided:  Number(d.payload.caData[k]?.decided)     || 0,
             meetings: Number(d.payload.caData[k]?.newMeetings) || 0,  // 面談数はnewMeetings
             active:   Number(d.payload.caData[k]?.active)      || 0,
-            zuha:     Number(d.payload.caData[k]?.zuha)        || 0,
+            zuba: Number(d.payload.caData[k]?.zuha) || 0,
             cl:       Number(d.payload.caData[k]?.cl)          || 0,
           }))
         };
