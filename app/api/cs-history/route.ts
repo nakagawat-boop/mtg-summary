@@ -2,19 +2,21 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 function getRecentCsWeeks(): string[] {
-  const seen = new Set<string>();
   const result: string[] = [];
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 8; i++) {
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() - i * 7);
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth() + 1;
     const day = d.getUTCDate();
-    // carista-weeklyの週番号: 日付÷7の切り上げ
-    const weekNum = Math.ceil(day / 7);
-    const key = `${y}_${String(m).padStart(2,'0')}_${weekNum}W`;
-    if (!seen.has(key)) { seen.add(key); result.push(key); }
+    // 両方の計算方法を試す
+    const w1 = Math.ceil(day / 7);
+    const w2 = Math.floor((day - 1) / 7) + 1;
+    const k1 = `${y}_${String(m).padStart(2,'0')}_${w1}W`;
+    const k2 = `${y}_${String(m).padStart(2,'0')}_${w2}W`;
+    if (!result.includes(k1)) result.push(k1);
+    if (!result.includes(k2)) result.push(k2);
   }
   return result;
 }
@@ -45,8 +47,13 @@ export async function GET() {
       } catch { return null; }
     })
   );
-  const rows = results.filter(Boolean).slice(0, 6);
+  // 重複week_keyを除去して最新6件
+  const seen = new Set<string>();
+  const rows = results.filter(r => {
+    if (!r) return false;
+    if (seen.has((r as any).week_key)) return false;
+    seen.add((r as any).week_key);
+    return true;
+  }).slice(0, 6);
   return NextResponse.json({ rows });
 }
-// updated 2026年 4月 6日 月曜日 17時51分07秒 JST
-// updated 2026年 4月 6日 月曜日 17時52分30秒 JST
