@@ -38,11 +38,17 @@ function calcKpi(rows:CaRow[]) {
 }
 
 function getCurrentWeek() {
-  const d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0')
-  const fd=new Date(y,d.getMonth(),1).getDay(), w=Math.ceil((d.getDate()+fd)/7)
-  return `${y}/${m}/${w}W`
+  // JST補正して直近の月曜日を返す
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const day = now.getUTCDay()
+  const diff = day === 0 ? 6 : day - 1
+  now.setUTCDate(now.getUTCDate() - diff)
+  const y = now.getUTCFullYear()
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(now.getUTCDate()).padStart(2, '0')
+  return `${y}/${m}/${d}`
 }
-function labelToKey(l:string){ return l.replace(/\//g,'_') }
+function labelToKey(l:string){ return 'Week_' + l.replace(/\//g,'_') }
 
 // ── KPIカード
 function KpiCard({label,value,unit,sub,delta,color,progress}:{label:string;value:string|number;unit:string;sub:string;delta?:string;deltaUp?:boolean;color:string;progress:number}) {
