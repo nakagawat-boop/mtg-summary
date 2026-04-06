@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 function mondayWeekNum(date: Date): number {
-  // その月の第何月曜日か
   const y = date.getUTCFullYear();
   const m = date.getUTCMonth();
   const day = date.getUTCDate();
@@ -16,11 +15,9 @@ function mondayWeekNum(date: Date): number {
 function getRecentCsWeeks(): string[] {
   const result: string[] = [];
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  // 直近の月曜日に揃える
   const dow = now.getUTCDay();
   const diff = dow === 0 ? 6 : dow - 1;
   now.setUTCDate(now.getUTCDate() - diff);
-
   for (let i = 0; i < 8; i++) {
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() - i * 7);
@@ -66,5 +63,5 @@ export async function GET() {
     seen.add(r.week_key);
     return true;
   }).slice(0, 6);
-  return NextResponse.json({ rows });
+  return NextResponse.json({ rows, debug_candidates: candidates });
 }
