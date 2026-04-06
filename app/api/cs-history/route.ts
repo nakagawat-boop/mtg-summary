@@ -5,12 +5,13 @@ function getRecentCsWeeks(): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() - i * 7);
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth() + 1;
     const day = d.getUTCDate();
+    // carista-weeklyの週番号: 日付÷7の切り上げ
     const weekNum = Math.ceil(day / 7);
     const key = `${y}_${String(m).padStart(2,'0')}_${weekNum}W`;
     if (!seen.has(key)) { seen.add(key); result.push(key); }
@@ -37,7 +38,7 @@ export async function GET() {
             decided:  Number(c.decided)  || 0,
             meetings: Number(c.meetings) || 0,
             active:   Number(c.active)   || 0,
-            zuba: Number(c?.zuha) || 0,
+            zuba:     Number(c.zuba)     || 0,
             cl:       Number(c.cl)       || 0,
           }))
         };
