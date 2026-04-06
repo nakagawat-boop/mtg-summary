@@ -48,3 +48,4 @@ export async function GET() {
   const rows = results.filter(Boolean).slice(0, 6);
   return NextResponse.json({ rows });
 }
+// updated 2026年 4月 6日 月曜日 17時51分07秒 JST
