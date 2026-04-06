@@ -1,22 +1,34 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
+function mondayWeekNum(date: Date): number {
+  // その月の第何月曜日か
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth();
+  const day = date.getUTCDate();
+  let count = 0;
+  for (let d = 1; d <= day; d++) {
+    if (new Date(Date.UTC(y, m, d)).getUTCDay() === 1) count++;
+  }
+  return count || 1;
+}
+
 function getRecentCsWeeks(): string[] {
   const result: string[] = [];
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  // 直近の月曜日に揃える
+  const dow = now.getUTCDay();
+  const diff = dow === 0 ? 6 : dow - 1;
+  now.setUTCDate(now.getUTCDate() - diff);
+
   for (let i = 0; i < 8; i++) {
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() - i * 7);
     const y = d.getUTCFullYear();
     const m = d.getUTCMonth() + 1;
-    const day = d.getUTCDate();
-    // 両方の計算方法を試す
-    const w1 = Math.ceil(day / 7);
-    const w2 = Math.floor((day - 1) / 7) + 1;
-    const k1 = `${y}_${String(m).padStart(2,'0')}_${w1}W`;
-    const k2 = `${y}_${String(m).padStart(2,'0')}_${w2}W`;
-    if (!result.includes(k1)) result.push(k1);
-    if (!result.includes(k2)) result.push(k2);
+    const w = mondayWeekNum(d);
+    const key = `${y}_${String(m).padStart(2,'0')}_${w}W`;
+    if (!result.includes(key)) result.push(key);
   }
   return result;
 }
@@ -47,12 +59,11 @@ export async function GET() {
       } catch { return null; }
     })
   );
-  // 重複week_keyを除去して最新6件
   const seen = new Set<string>();
-  const rows = results.filter(r => {
+  const rows = results.filter((r): r is NonNullable<typeof r> => {
     if (!r) return false;
-    if (seen.has((r as any).week_key)) return false;
-    seen.add((r as any).week_key);
+    if (seen.has(r.week_key)) return false;
+    seen.add(r.week_key);
     return true;
   }).slice(0, 6);
   return NextResponse.json({ rows });
