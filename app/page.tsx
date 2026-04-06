@@ -384,10 +384,11 @@ export default function Dashboard() {
           <select value={week} onChange={e=>setWeek(e.target.value)}
             style={{fontSize:12,padding:'5px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fafaf9',color:'#1d1d1f',outline:'none',fontFamily:'DM Sans,sans-serif'}}>
             {Array.from({length:8},(_,i)=>{
-              const d=new Date(); d.setDate(d.getDate()-i*7)
-              const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0')
-              const fd=new Date(y,d.getMonth(),1).getDay(),w=Math.ceil((d.getDate()+fd)/7)
-              const lbl=`${y}/${m}/${w}W`
+              const now=new Date(Date.now()+9*60*60*1000)
+              const day=now.getUTCDay(), diff=day===0?6:day-1
+              now.setUTCDate(now.getUTCDate()-diff-i*7)
+              const y=now.getUTCFullYear(),m=String(now.getUTCMonth()+1).padStart(2,'0'),d=String(now.getUTCDate()).padStart(2,'0')
+              const lbl=`${y}/${m}/${d}`
               return <option key={lbl} value={lbl}>{lbl}</option>
             })}
           </select>
