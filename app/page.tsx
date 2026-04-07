@@ -278,6 +278,8 @@ export default function Dashboard() {
   const [showPjForm, setShowPjForm] = useState(false)
   const [pjForm, setPjForm] = useState<Partial<PjCard>>({})
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   const loadAll = useCallback(async() => {
     setLoading(true)
@@ -293,6 +295,18 @@ export default function Dashboard() {
       if(csR.payload) setCsData(csR.payload)
       if(scHR.rows) setScHistory(scHR.rows.reverse())
       if(csHR.rows) setCsHistory(csHR.rows.reverse())
+      try {
+        const wk = 'Week_' + week.replace(/\//g,'_')
+        const metaR = await fetch('/api/summary-meta?week='+wk).then(r=>r.json())
+        if(metaR?.meta) {
+          if(metaR.meta.pj_cards?.length) setPjCards(metaR.meta.pj_cards)
+          if(metaR.meta.topics_data?.length) setTopics(metaR.meta.topics_data)
+          if(metaR.meta.ad_cost_sc != null) setAdCostSC(String(metaR.meta.ad_cost_sc))
+          if(metaR.meta.ad_cost_cs != null) setAdCostCS(String(metaR.meta.ad_cost_cs))
+          if(metaR.meta.unit_sc != null) setUnitSC(String(metaR.meta.unit_sc))
+          if(metaR.meta.unit_cs != null) setUnitCS(String(metaR.meta.unit_cs))
+        }
+      } catch(e2){ console.error('meta load failed', e2) }
     } catch(e){ console.error(e) }
     setLoading(false)
   },[week])
@@ -300,6 +314,26 @@ export default function Dashboard() {
   useEffect(()=>{ loadAll() },[loadAll])
 
   // ── 自動保存 (debounce 800ms)
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/summary-meta', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ week: labelToKey(week), meta: {
+          pj_cards: pjCards, topics_data: topics,
+          ad_cost_sc: adCostSC, ad_cost_cs: adCostCS,
+          unit_sc: unitSC, unit_cs: unitCS
+        }})
+      })
+      if(!res.ok) throw new Error('保存失敗')
+      setSaved(true)
+      setTimeout(()=>setSaved(false), 2000)
+    } catch(e) {
+      alert('保存に失敗しました。再試行してください。')
+    }
+    setSaving(false)
+  }
   const saveTimer = useRef<NodeJS.Timeout|null>(null)
   const autoSave = useCallback((data: {
     pj_cards?: PjCard[]; topics_data?: Topic[];
@@ -392,6 +426,12 @@ export default function Dashboard() {
               return <option key={lbl} value={lbl}>{lbl}</option>
             })}
           </select>
+          <button onClick={handleSave} disabled={saving}
+            style={{fontSize:12,fontWeight:700,padding:'6px 18px',borderRadius:8,border:'none',
+              background:saved?'#2e844a':saving?'#9aa5b4':'#0176d3',
+              color:'#fff',cursor:saving?'not-allowed':'pointer',transition:'background .2s'}}>
+            {saving?'保存中...':saved?'✓ 保存済み':'💾 保存'}
+          </button>
           <span style={{fontSize:11,fontWeight:500,padding:'4px 12px',borderRadius:999,border:'1px solid #a3d9a5',color:'#2e844a',background:'#eaf5ea'}}>● ライブデータ</span>
         </div>
       </div>
