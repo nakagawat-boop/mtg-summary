@@ -26,32 +26,59 @@ jobs:
           SC_NAMES = ["清野","茨木","菊地","福田","大西","南原"]
           CS_NAMES = ["中村","大城","小谷","喜多"]
 
-          sc_latest = sc.get("rows", [{}])[0].get("ca", []) if sc.get("rows") else []
-          cs_latest = cs.get("rows", [{}])[0].get("ca", []) if cs.get("rows") else []
+          sc_rows = sc.get("rows", [])
+          cs_rows = cs.get("rows", [])
+
+          sc_this = sc_rows[0]["ca"] if len(sc_rows) > 0 else []
+          sc_prev = sc_rows[1]["ca"] if len(sc_rows) > 1 else []
+          cs_this = cs_rows[0]["ca"] if len(cs_rows) > 0 else []
+          cs_prev = cs_rows[1]["ca"] if len(cs_rows) > 1 else []
 
           def total(rows, key):
               return sum(r.get(key, 0) for r in rows)
 
+          def diff(now, prev, unit=""):
+              d = now - prev
+              if d > 0: return f"（先週比+{d}{unit}⤴️）"
+              if d < 0: return f"（先週比{d}{unit}⤇）"
+              return "（先週比±0）"
+
           today = datetime.date.today().strftime("%Y/%m/%d")
 
+          td = total(sc_this,"decided") + total(cs_this,"decided")
+          pd = total(sc_prev,"decided") + total(cs_prev,"decided")
+          ts = total(sc_this,"sales") + total(cs_this,"sales")
+          ps = total(sc_prev,"sales") + total(cs_prev,"sales")
+          tm = total(sc_this,"meetings") + total(cs_this,"meetings")
+          pm = total(sc_prev,"meetings") + total(cs_prev,"meetings")
+          ta = total(sc_this,"active") + total(cs_this,"active")
+          pa = total(sc_prev,"active") + total(cs_prev,"active")
+          tz = total(sc_this,"zuba") + total(cs_this,"zuba")
+          pz = total(sc_prev,"zuba") + total(cs_prev,"zuba")
+          tc = total(sc_this,"cl") + total(cs_this,"cl")
+          pc = total(sc_prev,"cl") + total(cs_prev,"cl")
+
           lines = [
-              f"📊 *営業週次サマリー｜{today}*",
+              f"📣 *営業週次サマリー｜{today}*（先週比）",
               "",
               "*【全体 SC＋CS】*",
-              f"✅ 決定数: *{total(sc_latest,'decided')+total(cs_latest,'decided')}件* (SC {total(sc_latest,'decided')} / CS {total(cs_latest,'decided')})",
-              f"💰 売上:   *{total(sc_latest,'sales')+total(cs_latest,'sales')}万* (SC {total(sc_latest,'sales')} / CS {total(cs_latest,'sales')})",
-              f"👥 面談数: *{total(sc_latest,'meetings')+total(cs_latest,'meetings')}件* (SC {total(sc_latest,'meetings')} / CS {total(cs_latest,'meetings')})",
-              f"⚡ 稼働数: *{total(sc_latest,'active')+total(cs_latest,'active')}名* (SC {total(sc_latest,'active')} / CS {total(cs_latest,'active')})",
-              f"🎯 ズバ確定: *{total(sc_latest,'zuba')+total(cs_latest,'zuba')}万*",
-              f"📈 CL見込み: *{total(sc_latest,'cl')+total(cs_latest,'cl')}万* (SC {total(sc_latest,'cl')} / CS {total(cs_latest,'cl')})",
+              f"✅ 決定数: *{td}件* {diff(td,pd,'件')} (SC {total(sc_this,'decided')} / CS {total(cs_this,'decided')})",
+              f"💰 売上:   *{ts}万* {diff(ts,ps,'万')} (SC {total(sc_this,'sales')} / CS {total(cs_this,'sales')})",
+              f"👥 面談数: *{tm}件* {diff(tm,pm,'件')} (SC {total(sc_this,'meetings')} / CS {total(cs_this,'meetings')})",
+              f"⚡ 稼働数: *{ta}名* {diff(ta,pa,'名')} (SC {total(sc_this,'active')} / CS {total(cs_this,'active')})",
+              f"🎯 ズバ確定: *{tz}万* {diff(tz,pz,'万')}",
+              f"📈 CL見込み: *{tc}万* {diff(tc,pc,'万')} (SC {total(sc_this,'cl')} / CS {total(cs_this,'cl')})",
               "",
               "*【SC CA別】*",
           ]
-          for name, ca in zip(SC_NAMES, sc_latest):
-              lines.append(f"  {name}: 決定{ca.get('decided',0)} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
+          for i, (name, ca) in enumerate(zip(SC_NAMES, sc_this)):
+              pca = sc_prev[i] if i < len(sc_prev) else {}
+              lines.append(f"  {name}: 決定{ca.get('decided',0)}{diff(ca.get('decided',0),pca.get('decided',0),'件')} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
+
           lines += ["", "*【CS CA別】*"]
-          for name, ca in zip(CS_NAMES, cs_latest):
-              lines.append(f"  {name}: 決定{ca.get('decided',0)} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
+          for i, (name, ca) in enumerate(zip(CS_NAMES, cs_this)):
+              pca = cs_prev[i] if i < len(cs_prev) else {}
+              lines.append(f"  {name}: 決定{ca.get('decided',0)}{diff(ca.get('decided',0),pca.get('decided',0),'件')} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
 
           payload = json.dumps({"text": "\n".join(lines), "username": "月次進捗レポート", "icon_emoji": ":mega:"}).encode("utf-8")
           req = urllib.request.Request(os.environ["SLACK_WEBHOOK"], data=payload, headers={"Content-Type": "application/json"})
