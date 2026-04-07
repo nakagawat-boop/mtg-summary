@@ -2,19 +2,18 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // 1. 既存weekリスト取得
   const weeksR = await fetch("https://carista-weekly.vercel.app/api/weeks", { cache: "no-store" });
   const { weeks } = await weeksR.json();
 
-  // 2. 今週のキーを全パターン試す（JST補正）
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() + 1;
-  const mm = String(m).padStart(2,'0');
-  const thisWeekCandidates = [`${y}_${mm}_1W`,`${y}_${mm}_2W`,`${y}_${mm}_3W`,`${y}_${mm}_4W`,`${y}_${mm}_5W`];
+  const mm = String(now.getUTCMonth() + 1).padStart(2,'0');
+  const thisMonthKeys = [`${y}_${mm}_1W`,`${y}_${mm}_2W`,`${y}_${mm}_3W`,`${y}_${mm}_4W`,`${y}_${mm}_5W`];
 
-  // 3. 重複なしで合体
-  const targets = [...new Set([...thisWeekCandidates, ...(weeks||[])])].slice(0, 12);
+  const allKeys: string[] = [];
+  thisMonthKeys.forEach(k => { if(!allKeys.includes(k)) allKeys.push(k); });
+  (weeks||[]).forEach((k: string) => { if(!allKeys.includes(k)) allKeys.push(k); });
+  const targets = allKeys.slice(0, 12);
 
   const results = await Promise.all(
     targets.map(async (week: string) => {
@@ -41,11 +40,11 @@ export async function GET() {
     })
   );
 
-  const seen = new Set<string>();
+  const seen: string[] = [];
   const rows = results.filter((r): r is NonNullable<typeof r> => {
     if (!r) return false;
-    if (seen.has(r.week_key)) return false;
-    seen.add(r.week_key);
+    if (seen.includes(r.week_key)) return false;
+    seen.push(r.week_key);
     return true;
   }).slice(0, 6);
 
