@@ -2,53 +2,35 @@ name: Daily Slack Summary
 
 on:
   schedule:
-    - cron: '0 1 * * 1-5'  # JST 10:00（月〜金）
-  workflow_dispatch:  # 手動実行も可能
+    - cron: '0 1 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   post-summary:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch and post summary
+      - name: Fetch and post to Slack
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # SC/CSデータ取得
-          SC=$(curl -s "https://mtg-summary.vercel.app/api/sc-history")
-          CS=$(curl -s "https://mtg-summary.vercel.app/api/cs-history")
-          
-          # Python でメッセージ組み立て
-          python3 << 'PYEOF'
-          import json, os, urllib.request, urllib.parse, datetime
+          python3 - << 'PYEOF'
+          import json, os, urllib.request, datetime
 
-          sc = json.loads("""$SC""")
-          cs = json.loads("""$CS""")
+          def fetch(url):
+              with urllib.request.urlopen(url) as r:
+                  return json.loads(r.read())
+
+          sc = fetch("https://mtg-summary.vercel.app/api/sc-history")
+          cs = fetch("https://mtg-summary.vercel.app/api/cs-history")
 
           SC_NAMES = ["清野","茨木","菊地","福田","大西","南原"]
           CS_NAMES = ["中村","大城","小谷","喜多"]
 
-          sc_rows = sc.get("rows", [])
-          cs_rows = cs.get("rows", [])
-
-          # 最新週
-          sc_latest = sc_rows[0]["ca"] if sc_rows else []
-          cs_latest = cs_rows[0]["ca"] if cs_rows else []
+          sc_latest = sc.get("rows", [{}])[0].get("ca", []) if sc.get("rows") else []
+          cs_latest = cs.get("rows", [{}])[0].get("ca", []) if cs.get("rows") else []
 
           def total(rows, key):
               return sum(r.get(key, 0) for r in rows)
-
-          # 全体合算
-          sc_decided = total(sc_latest, "decided")
-          cs_decided = total(cs_latest, "decided")
-          sc_sales   = total(sc_latest, "sales")
-          cs_sales   = total(cs_latest, "sales")
-          sc_meet    = total(sc_latest, "meetings")
-          cs_meet    = total(cs_latest, "meetings")
-          sc_active  = total(sc_latest, "active")
-          cs_active  = total(cs_latest, "active")
-          sc_zuba    = total(sc_latest, "zuba")
-          sc_cl      = total(sc_latest, "cl")
-          cs_cl      = total(cs_latest, "cl")
 
           today = datetime.date.today().strftime("%Y/%m/%d")
 
@@ -56,30 +38,23 @@ jobs:
               f"📊 *営業週次サマリー｜{today}*",
               "",
               "*【全体 SC＋CS】*",
-              f"✅ 決定数: *{sc_decided+cs_decided}件* (SC {sc_decided} / CS {cs_decided})",
-              f"💰 売上:   *{sc_sales+cs_sales}万* (SC {sc_sales} / CS {cs_sales})",
-              f"👥 面談数: *{sc_meet+cs_meet}件* (SC {sc_meet} / CS {cs_meet})",
-              f"⚡ 稼働数: *{sc_active+cs_active}名* (SC {sc_active} / CS {cs_active})",
-              f"🎯 ズバ確定: *{sc_zuba}万*",
-              f"📈 CL見込み: *{sc_cl+cs_cl}万* (SC {sc_cl} / CS {cs_cl})",
+              f"✅ 決定数: *{total(sc_latest,'decided')+total(cs_latest,'decided')}件* (SC {total(sc_latest,'decided')} / CS {total(cs_latest,'decided')})",
+              f"💰 売上:   *{total(sc_latest,'sales')+total(cs_latest,'sales')}万* (SC {total(sc_latest,'sales')} / CS {total(cs_latest,'sales')})",
+              f"👥 面談数: *{total(sc_latest,'meetings')+total(cs_latest,'meetings')}件* (SC {total(sc_latest,'meetings')} / CS {total(cs_latest,'meetings')})",
+              f"⚡ 稼働数: *{total(sc_latest,'active')+total(cs_latest,'active')}名* (SC {total(sc_latest,'active')} / CS {total(cs_latest,'active')})",
+              f"🎯 ズバ確定: *{total(sc_latest,'zuba')+total(cs_latest,'zuba')}万*",
+              f"📈 CL見込み: *{total(sc_latest,'cl')+total(cs_latest,'cl')}万* (SC {total(sc_latest,'cl')} / CS {total(cs_latest,'cl')})",
               "",
               "*【SC CA別】*",
           ]
-          for i, (name, ca) in enumerate(zip(SC_NAMES, sc_latest)):
+          for name, ca in zip(SC_NAMES, sc_latest):
               lines.append(f"  {name}: 決定{ca.get('decided',0)} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
-
           lines += ["", "*【CS CA別】*"]
-          for i, (name, ca) in enumerate(zip(CS_NAMES, cs_latest)):
+          for name, ca in zip(CS_NAMES, cs_latest):
               lines.append(f"  {name}: 決定{ca.get('decided',0)} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
 
-          message = "\n".join(lines)
-          payload = json.dumps({"text": message}).encode("utf-8")
-
-          req = urllib.request.Request(
-              os.environ["SLACK_WEBHOOK"],
-              data=payload,
-              headers={"Content-Type": "application/json"}
-          )
+          payload = json.dumps({"text": "\n".join(lines)}).encode("utf-8")
+          req = urllib.request.Request(os.environ["SLACK_WEBHOOK"], data=payload, headers={"Content-Type": "application/json"})
           urllib.request.urlopen(req)
           print("Slack送信完了")
           PYEOF
