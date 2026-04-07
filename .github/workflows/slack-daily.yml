@@ -53,7 +53,7 @@ jobs:
           for name, ca in zip(CS_NAMES, cs_latest):
               lines.append(f"  {name}: 決定{ca.get('decided',0)} 売上{ca.get('sales',0)}万 面談{ca.get('meetings',0)} 稼働{ca.get('active',0)}")
 
-          payload = json.dumps({"text": "\n".join(lines), "username": "月次進捗レポート", "icon_emoji": ":bar_chart:"}).encode("utf-8")
+          payload = json.dumps({"text": "\n".join(lines), "username": "月次進捗レポート", "icon_emoji": ":mega:"}).encode("utf-8")
           req = urllib.request.Request(os.environ["SLACK_WEBHOOK"], data=payload, headers={"Content-Type": "application/json"})
           urllib.request.urlopen(req)
           print("Slack送信完了")
