@@ -55,15 +55,17 @@ export async function GET(req: Request) {
     `📈 CL見込み: *${tc}万* ${diff(tc,pc,'万')} (SC ${total(scThis,'cl')} / CS ${total(csThis,'cl')})`,
     '',
     '*【SC CA別】*',
-    ...SC_NAMES.map((name,i) => {
-      const ca=scThis[i]||{}; const pca=scPrev[i]||{};
-      return `  ${name}: 決定${ca.decided||0}${diff(ca.decided||0,pca.decided||0,'件')} 売上${ca.sales||0}万 面談${ca.meetings||0} 稼働${ca.active||0}`;
-    }),
-    '', '*【CS CA別】*',
-    ...CS_NAMES.map((name,i) => {
-      const ca=csThis[i]||{}; const pca=csPrev[i]||{};
-      return `  ${name}: 決定${ca.decided||0}${diff(ca.decided||0,pca.decided||0,'件')} 売上${ca.sales||0}万 面談${ca.meetings||0} 稼働${ca.active||0}`;
-    }),
+  ];
+  SC_NAMES.forEach((name,i) => {
+    const ca=scThis[i]||{}; const pca=scPrev[i]||{};
+    lines.push(`  ${name}: 決定${ca.decided||0}${diff(ca.decided||0,pca.decided||0,'件')} 売上${ca.sales||0}万 面談${ca.meetings||0} 稼働${ca.active||0}`);
+  });
+  lines.push('', '*【CS CA別】*');
+  CS_NAMES.forEach((name,i) => {
+    const ca=csThis[i]||{}; const pca=csPrev[i]||{};
+    lines.push(`  ${name}: 決定${ca.decided||0}${diff(ca.decided||0,pca.decided||0,'件')} 売上${ca.sales||0}万 面談${ca.meetings||0} 稼働${ca.active||0}`);
+  });
+  const dummy = [
   ];
   await fetch(process.env.SLACK_WEBHOOK_URL!, {
     method: 'POST',
