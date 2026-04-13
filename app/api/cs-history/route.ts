@@ -48,5 +48,7 @@ export async function GET() {
     return true;
   }).slice(0, 6);
 
+  // week_keyで降順ソート（新しい週が先頭）
+  rows.sort((a: any, b: any) => b.week_key.localeCompare(a.week_key));
   return NextResponse.json({ rows });
 }
