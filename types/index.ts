@@ -17,6 +17,20 @@ export function getCurrentWeek(): string {
   return `${y}/${m}/${w}W`;
 }
 export function labelToKey(l: string) { return l.replace(/\//g,"_"); }
+export interface CompanyRow {
+  id: string;
+  week_key: string;
+  company: string;
+  ca_name: string;
+  applied: number;
+  first_interview: number;
+  final_interview: number;
+  offered: number;
+  decided: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export function emptyWeekData(): WeekData {
   const emptyCa = () => ({ sales:0, decided:0, meetings:0, active:0, zuba:0, cl:0, focusCount:0, interviewSet:0 });
   return {

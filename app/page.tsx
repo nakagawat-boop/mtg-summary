@@ -10,6 +10,12 @@ interface CaRow { sales:number; decided:number; meetings:number; active:number; 
 interface WeekData { overall:{ca:CaRow[]}; cs:{ca:CaRow[]}; csl:{ca:CaRow[]}; focusData:any[]; pjData:any[] }
 interface HistoryRow { week_key:string; payload?:WeekData; ca?:CaRow[] }
 
+interface CompanyRow {
+  id: string; week_key: string; company: string; ca_name: string;
+  applied: number; first_interview: number; final_interview: number;
+  offered: number; decided: number;
+}
+
 interface PjCard {
   id: number;
   name: string; owner: string; started: string; total: number;
@@ -277,6 +283,10 @@ export default function Dashboard() {
   const [pjEditId, setPjEditId] = useState<number|null>(null)
   const [showPjForm, setShowPjForm] = useState(false)
   const [pjForm, setPjForm] = useState<Partial<PjCard>>({})
+  const [companyRows, setCompanyRows] = useState<CompanyRow[]>([])
+  const [showCompanyForm, setShowCompanyForm] = useState(false)
+  const [editingCompanyId, setEditingCompanyId] = useState<string|null>(null)
+  const [companyForm, setCompanyForm] = useState<Partial<CompanyRow>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -295,6 +305,11 @@ export default function Dashboard() {
       if(csR.payload) setCsData(csR.payload)
       if(scHR.rows) setScHistory(scHR.rows.reverse())
       if(csHR.rows) setCsHistory(csHR.rows.reverse())
+      try {
+        const cpR = await fetch(`/api/company-progress?week=${wk}`).then(r=>r.json())
+        if(cpR.rows) setCompanyRows(cpR.rows)
+        else setCompanyRows([])
+      } catch(e2){ console.error('company-progress load failed', e2) }
       try {
         const wk = 'Week_' + week.replace(/\//g,'_')
         const metaR = await fetch('/api/summary-meta?week='+wk).then(r=>r.json())
@@ -386,8 +401,8 @@ export default function Dashboard() {
   ].sort((a,b)=>b.decided-a.decided)
   const maxDecided = allCa[0]?.decided || 1
 
-  const TAB_COLORS = ['#0176d3','#1b96ff','#2e844a','#7a288a','#ea780e']
-  const TAB_LABELS = ['全体サマリー','SC 振り返り','CS 振り返り','PJ 振り返り','その他トピックス']
+  const TAB_COLORS = ['#0176d3','#1b96ff','#2e844a','#7a288a','#ea780e','#e16032']
+  const TAB_LABELS = ['全体サマリー','SC 振り返り','CS 振り返り','PJ 振り返り','その他トピックス','企業別進捗']
 
   const card = (children:React.ReactNode, style?:React.CSSProperties) => (
     <div style={{background:'#fff',border:'1px solid #e5e5e5',borderRadius:10,padding:20,...style}}>{children}</div>
@@ -803,6 +818,164 @@ export default function Dashboard() {
         </div>
       )}
 
+
+      {/* ═══ TAB 5: 企業別進捗 ═══ */}
+      {!loading && tab===5 && (
+        <div style={{padding:'24px 28px',maxWidth:1280,margin:'0 auto'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+            <div>
+              <div style={{fontSize:20,fontWeight:800,letterSpacing:'-.5px'}}>企業別進捗</div>
+              <div style={{fontSize:12,color:'#706e6b',marginTop:3}}>{week} ― 企業別応募・選考管理</div>
+            </div>
+            <button onClick={()=>{ setCompanyForm({company:'',ca_name:SC_CA[0],applied:0,first_interview:0,final_interview:0,offered:0,decided:0}); setEditingCompanyId(null); setShowCompanyForm(true); }}
+              style={{fontSize:12,fontWeight:700,padding:'8px 18px',borderRadius:8,border:'none',background:'#e16032',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              ＋ 企業を追加
+            </button>
+          </div>
+
+          {/* サマリーカード */}
+          {(()=>{
+            const totalApplied = companyRows.reduce((s,r)=>s+r.applied,0)
+            const totalDecidedCo = companyRows.reduce((s,r)=>s+r.decided,0)
+            const passRate = totalApplied>0 ? (totalDecidedCo/totalApplied*100).toFixed(1) : '0.0'
+            return (
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:12,marginBottom:20}}>
+                <KpiCard label="企業数" value={companyRows.length} unit="社" sub="登録企業数" color="#e16032" progress={companyRows.length/10*100} />
+                <KpiCard label="応募数" value={totalApplied} unit="件" sub="合計応募数" color="#0176d3" progress={totalApplied/50*100} />
+                <KpiCard label="決定数" value={totalDecidedCo} unit="件" sub="合計決定数" color="#2e844a" progress={totalDecidedCo/20*100} />
+                <KpiCard label="通過率" value={passRate} unit="%" sub="決定 / 応募" color="#7a288a" progress={Number(passRate)} />
+              </div>
+            )
+          })()}
+
+          {/* ファネル棒グラフ */}
+          {companyRows.length > 0 ? card(<>
+            {cardHd('企業別ファネル','応募→決定')}
+            <div style={{height:280}}>
+              <Bar data={{
+                labels: companyRows.map(r=>r.company.length>8?r.company.slice(0,8)+'…':r.company),
+                datasets: [
+                  {label:'応募',data:companyRows.map(r=>r.applied),backgroundColor:'#0176d3',borderRadius:4},
+                  {label:'一次面接',data:companyRows.map(r=>r.first_interview),backgroundColor:'#1b96ff',borderRadius:4},
+                  {label:'最終面接',data:companyRows.map(r=>r.final_interview),backgroundColor:'#7a288a',borderRadius:4},
+                  {label:'内定',data:companyRows.map(r=>r.offered),backgroundColor:'#ea780e',borderRadius:4},
+                  {label:'決定',data:companyRows.map(r=>r.decided),backgroundColor:'#2e844a',borderRadius:4},
+                ]
+              }} options={{
+                responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{display:true,position:'top' as const,labels:{font:{size:10},boxWidth:12,padding:12}}},
+                scales:{
+                  x:{ticks:{font:{size:10},color:'#706e6b'},grid:{display:false}},
+                  y:{ticks:{font:{size:9},color:'#888',stepSize:1},grid:{color:'rgba(0,0,0,0.04)'}},
+                }
+              }} />
+            </div>
+          </>,{marginBottom:16}) : (
+            <div style={{background:'#fff',border:'1px solid #e5e5e5',borderRadius:10,padding:20,marginBottom:16}}>
+              <div style={{textAlign:'center',padding:40}}>
+                <div style={{fontSize:13,color:'#706e6b'}}>企業データを追加すると、ファネルグラフが表示されます</div>
+              </div>
+            </div>
+          )}
+
+          {/* データテーブル */}
+          {card(<>
+            {cardHd('企業別データ',`${companyRows.length}社`)}
+            {companyRows.length===0 ? (
+              <div style={{textAlign:'center',padding:32}}>
+                <div style={{fontSize:13,color:'#706e6b'}}>企業データがありません。上のボタンから追加してください。</div>
+              </div>
+            ) : (
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                  <thead>
+                    <tr>
+                      {['企業名','担当CA','応募','一次','最終','内定','決定','操作'].map(h=>(
+                        <th key={h} style={{fontSize:10,fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',padding:'8px 12px',textAlign:h==='操作'?'center':'left',background:'#f3f2f2',borderBottom:'1px solid #e5e5e5'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companyRows.map(row=>(
+                      <tr key={row.id} style={{transition:'background .1s'}}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#fafaf9')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',fontWeight:600,color:'#1d1d1f'}}>{row.company}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',color:'#706e6b'}}>{row.ca_name}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',fontFamily:'DM Mono,monospace',fontWeight:600}}>{row.applied}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',fontFamily:'DM Mono,monospace',fontWeight:600}}>{row.first_interview}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',fontFamily:'DM Mono,monospace',fontWeight:600}}>{row.final_interview}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',fontFamily:'DM Mono,monospace',fontWeight:600}}>{row.offered}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',fontFamily:'DM Mono,monospace',fontWeight:600}}>{row.decided}</td>
+                        <td style={{padding:'10px 12px',borderBottom:'1px solid #f3f2f2',textAlign:'center'}}>
+                          <div style={{display:'flex',justifyContent:'center',gap:6}}>
+                            <button onClick={()=>{
+                              setCompanyForm({...row});
+                              setEditingCompanyId(row.id);
+                              setShowCompanyForm(true);
+                            }} style={{fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:6,border:'1px solid #e5e5e5',background:'#fff',color:'#0176d3',cursor:'pointer'}}>編集</button>
+                            <button onClick={async()=>{
+                              if(!window.confirm(`「${row.company}」のデータを削除しますか？`)) return;
+                              await fetch(`/api/company-progress?id=${row.id}`,{method:'DELETE'});
+                              setCompanyRows(prev=>prev.filter(r=>r.id!==row.id));
+                            }} style={{fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:6,border:'1px solid #fce9e9',background:'#fff',color:'#ba0517',cursor:'pointer'}}>削除</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>)}
+
+          {/* 入力/編集フォーム */}
+          {showCompanyForm && (
+            <div style={{background:'#fafaf9',border:'1px solid #e5e5e5',borderLeft:'3px solid #e16032',borderRadius:10,padding:'18px 20px',marginTop:16}}>
+              <div style={{fontSize:10,fontWeight:800,fontFamily:'DM Mono,monospace',color:'#b0adab',marginBottom:12}}>{editingCompanyId ? '企業データを編集' : '新規企業を追加'}</div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',display:'block',marginBottom:4}}>企業名</label>
+                <input value={companyForm.company||''} onChange={e=>setCompanyForm(p=>({...p,company:e.target.value}))} placeholder="企業名を入力..."
+                  style={{width:'100%',fontSize:13,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fff',color:'#1d1d1f',outline:'none',fontFamily:'DM Sans,sans-serif'}} />
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',display:'block',marginBottom:4}}>担当CA</label>
+                <select value={companyForm.ca_name||SC_CA[0]} onChange={e=>setCompanyForm(p=>({...p,ca_name:e.target.value}))}
+                  style={{width:'100%',fontSize:13,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fff',color:'#1d1d1f',outline:'none',fontFamily:'DM Sans,sans-serif'}}>
+                  {[...SC_CA,...CS_CA].map(name=><option key={name} value={name}>{name}</option>)}
+                </select>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,marginBottom:14}}>
+                {([['応募数','applied'],['一次面接','first_interview'],['最終面接','final_interview'],['内定数','offered'],['決定数','decided']] as [string,keyof CompanyRow][]).map(([label,key])=>(
+                  <div key={key}>
+                    <label style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',color:'#706e6b',display:'block',marginBottom:4}}>{label}</label>
+                    <input type="number" value={Number(companyForm[key])||0} onChange={e=>setCompanyForm(p=>({...p,[key]:Number(e.target.value)}))}
+                      style={{width:'100%',fontSize:13,fontWeight:600,padding:'8px 10px',border:'1px solid #e5e5e5',borderRadius:7,background:'#fff',color:'#1d1d1f',outline:'none',fontFamily:'DM Mono,monospace'}} />
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+                <button onClick={()=>{setShowCompanyForm(false);setEditingCompanyId(null);}}
+                  style={{fontSize:12,fontWeight:600,padding:'7px 16px',borderRadius:7,border:'1px solid #e5e5e5',background:'#fff',color:'#706e6b',cursor:'pointer',fontFamily:'DM Sans,sans-serif'}}>キャンセル</button>
+                <button onClick={async()=>{
+                  const wk = labelToKey(week);
+                  if(editingCompanyId) {
+                    await fetch('/api/company-progress',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingCompanyId,company:companyForm.company,ca_name:companyForm.ca_name,applied:companyForm.applied||0,first_interview:companyForm.first_interview||0,final_interview:companyForm.final_interview||0,offered:companyForm.offered||0,decided:companyForm.decided||0})});
+                    setCompanyRows(prev=>prev.map(r=>r.id===editingCompanyId?{...r,...companyForm as CompanyRow}:r));
+                  } else {
+                    const res = await fetch('/api/company-progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({week_key:wk,company:companyForm.company,ca_name:companyForm.ca_name,applied:companyForm.applied||0,first_interview:companyForm.first_interview||0,final_interview:companyForm.final_interview||0,offered:companyForm.offered||0,decided:companyForm.decided||0})});
+                    const data = await res.json();
+                    if(data.id) setCompanyRows(prev=>[...prev,{...companyForm as CompanyRow,id:data.id,week_key:wk}]);
+                    else { const cpR = await fetch(`/api/company-progress?week=${wk}`).then(r=>r.json()); if(cpR.rows) setCompanyRows(cpR.rows); }
+                  }
+                  setShowCompanyForm(false);setEditingCompanyId(null);
+                }}
+                  style={{fontSize:12,fontWeight:700,padding:'7px 18px',borderRadius:7,border:'none',background:'#e16032',color:'#fff',cursor:'pointer',fontFamily:'DM Sans,sans-serif'}}>{editingCompanyId?'更新する':'追加する'}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══ TAB 4: その他トピックス ═══ */}
       {!loading && tab===4 && (
